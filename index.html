@@ -1,0 +1,2524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Name Tester</title>
+<style>
+  :root {
+    --bg: #0b0b0d;
+    --surface: #15161a;
+    --surface-2: #1e1f24;
+    --border: #2a2b31;
+    --text: #ececef;
+    --text-muted: #8b8c93;
+    --accent: #7c8eff;
+    --accent-soft: #2a2f50;
+
+    --orange: #ff9f43;
+    --orange-soft: rgba(255, 159, 67, 0.20);
+    --yellow: #f5d04a;
+    --yellow-soft: rgba(245, 208, 74, 0.20);
+
+    --success: #6bd394;
+    --success-soft: rgba(107, 211, 148, 0.18);
+    --danger: #ff6b6b;
+    --danger-soft: rgba(255, 107, 107, 0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 940px; margin: 0 auto; padding: 32px 24px 96px; }
+  header { margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-muted); font-size: 13px; }
+
+  /* Rules source panel */
+  .rules-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .rules-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .rules-summary-row:hover { background: var(--surface-2); }
+  .rules-summary-row .icon-toggle {
+    transition: transform 150ms;
+    color: var(--text-muted);
+    display: flex;
+  }
+  .rules-panel.open .rules-summary-row .icon-toggle { transform: rotate(90deg); }
+  .rules-summary-row .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .rules-summary-row .source {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text);
+    margin-left: auto;
+  }
+  .rules-summary-row .source.uploaded { color: var(--accent); }
+
+  .rules-body {
+    display: none;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    gap: 12px;
+    flex-direction: column;
+  }
+  .rules-panel.open .rules-body { display: flex; }
+  .rules-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .rules-row .file-label {
+    font-size: 12px;
+    color: var(--text);
+    flex: 0 0 auto;
+    min-width: 200px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .rules-row .file-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex: 1;
+  }
+  .rules-row .file-status.active { color: var(--accent); }
+  .rules-row input[type="file"] { display: none; }
+  .rules-summary-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    background: var(--bg);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .rules-summary-text strong { color: var(--text); }
+
+  .grammar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 640px) {
+    .grammar-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  }
+  .grammar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font: inherit;
+    transition: all 120ms ease;
+    min-width: 0;
+  }
+  .grammar-card:hover { border-color: var(--accent); background: var(--surface-2); }
+  .grammar-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  .grammar-card .name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+  .grammar-card .pattern {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: none;
+  }
+
+  /* Grammar details accordion */
+  .grammar-details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .grammar-details[hidden] { display: none; }
+  .details-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .details-header:hover { background: var(--surface-2); }
+  .details-header .icon-toggle {
+    transition: transform 150ms;
+    color: var(--text-muted);
+    display: flex;
+  }
+  .grammar-details.open .details-header .icon-toggle { transform: rotate(90deg); }
+  .details-header .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .details-header .target {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .details-body {
+    display: none;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    flex-direction: column;
+    gap: 14px;
+  }
+  .grammar-details.open .details-body { display: flex; }
+
+  .detail-pattern {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--bg);
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+  .detail-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .detail-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .detail-when {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 600px) {
+    .detail-when { grid-template-columns: 1fr; }
+  }
+  .detail-when-block {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .detail-when-block.use { border-left: 3px solid var(--success); }
+  .detail-when-block.avoid { border-left: 3px solid var(--yellow); }
+  .detail-slot-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .inline-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.9em;
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .detail-slots { display: flex; flex-direction: column; gap: 6px; }
+  .detail-slot {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .detail-slot-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .detail-slot-name {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .detail-slot-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+  .detail-slot-tag.req { background: var(--accent-soft); color: var(--accent); }
+  .detail-slot-tag.opt { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+  .detail-slot-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .detail-option {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .detail-slot-empty { font-size: 11px; color: var(--text-muted); font-style: italic; }
+  .detail-examples-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .detail-example {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .builder {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .builder.editing { border-color: var(--accent); margin-bottom: 0; }
+  .builder:not(.editing) .edit-only { display: none; }
+  .builder.editing .create-only { display: none; }
+
+  .path {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 18px;
+    margin-bottom: 18px;
+    min-height: 26px;
+    word-break: break-all;
+  }
+  .path .filled { color: var(--text); }
+  .path .placeholder { color: var(--text-muted); font-style: italic; opacity: 0.6; }
+  .path .cursor { color: var(--accent); font-style: normal; opacity: 1; }
+  .path .cursor::after {
+    content: '';
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    background: var(--accent);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  .path .dot { color: var(--text-muted); }
+  .path .building {
+    color: var(--yellow);
+    font-style: normal;
+    background: var(--yellow-soft);
+    border-radius: 3px;
+    padding: 0 3px;
+    border: 1px dashed var(--yellow);
+  }
+  .path .building::after {
+    content: '_';
+    color: var(--yellow);
+    animation: blink 1s steps(2) infinite;
+    margin-left: 1px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .custom-val {
+    background: var(--orange-soft);
+    color: var(--orange);
+    border-radius: 3px;
+    padding: 0 3px;
+    font-style: normal;
+  }
+  .rule-break-val {
+    background: var(--yellow-soft);
+    color: var(--yellow);
+    border-radius: 3px;
+    padding: 0 3px;
+    font-style: normal;
+  }
+
+  .tip { position: relative; }
+  .tip:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    background: #000;
+    color: var(--text);
+    padding: 5px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-style: normal;
+    white-space: normal;
+    width: max-content;
+    max-width: 240px;
+    pointer-events: none;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 100;
+    line-height: 1.4;
+    text-align: center;
+  }
+  .tip:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #000;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .slot-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .slot-label .req-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); letter-spacing: 0.04em;
+  }
+  .slot-label .opt-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: var(--surface-2); color: var(--text-muted); letter-spacing: 0.04em;
+    border: 1px solid var(--border);
+  }
+  .slot-label .extra-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: var(--yellow-soft); color: var(--yellow); letter-spacing: 0.04em;
+    border: 1px solid var(--yellow);
+  }
+  .options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .opt-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    transition: all 120ms;
+  }
+  .opt-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  .skip-btn {
+    background: transparent;
+    border: 1px dashed var(--accent);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 120ms;
+  }
+  .skip-btn:hover { background: var(--accent-soft); border-style: solid; }
+
+  .field-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+  .field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-label .dot-icon {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .field-label.bend .dot-icon { background: var(--yellow); }
+  .field-label.custom .dot-icon { background: var(--orange); }
+
+  .combobox { position: relative; width: 100%; }
+  .combo-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 32px 6px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+  }
+  .combo-input::placeholder { color: var(--text-muted); }
+  .combo-input:focus { outline: none; border-color: var(--accent); }
+  .combo-arrow {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .combo-arrow:hover { color: var(--text); background: var(--surface-2); }
+  .combo-arrow svg { display: block; }
+  .combo-options {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    z-index: 50;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .combo-options[hidden] { display: none; }
+  .combo-option {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+    user-select: none;
+  }
+  .combo-option:hover, .combo-option.active { background: var(--accent-soft); }
+  .combo-option.no-match {
+    color: var(--text-muted);
+    font-style: italic;
+    cursor: default;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .combo-option.no-match:hover { background: transparent; }
+
+  .prefix-banner {
+    background: var(--yellow-soft);
+    border: 1px dashed var(--yellow);
+    color: var(--yellow);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .prefix-banner .prefix-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: rgba(0,0,0,0.35);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--yellow);
+  }
+  .prefix-banner button {
+    background: transparent;
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .prefix-banner button:hover { background: var(--yellow); color: #0b0b0d; }
+  .prefix-banner .pb-spacer { flex: 1; }
+
+  .custom-row { display: flex; gap: 6px; }
+  .custom-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+  }
+  .custom-row input:focus { outline: none; border-color: var(--accent); }
+  .custom-row button {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--orange);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 120ms;
+  }
+  .custom-row button:hover { background: var(--orange-soft); border-color: var(--orange); }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .ghost-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ghost-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text-muted); }
+  .ghost-btn:disabled { opacity: 0.3; cursor: default; }
+  .pill-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .pill-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  .pill-btn:disabled { opacity: 0.3; cursor: default; }
+  .pill-btn.success { border-color: rgba(107, 211, 148, 0.4); }
+  .pill-btn.success:hover:not(:disabled) { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+  .pill-btn.warn { border-color: rgba(245, 208, 74, 0.4); }
+  .pill-btn.warn:hover:not(:disabled) { background: var(--yellow-soft); border-color: var(--yellow); color: var(--yellow); }
+  .copy-btn {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: #0b0b0d;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .copy-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .copy-btn:disabled { opacity: 0.3; cursor: default; filter: none; }
+  .spacer { flex: 1; }
+
+  .empty { color: var(--text-muted); font-style: italic; font-size: 13px; padding: 16px 0; text-align: center; }
+
+  .grammar-prompt {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Single combined list */
+  .list-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+  }
+  .list-section.drag-over-list { /* no full-section highlight — placeholder shows the landing spot */ }
+  .list-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .list-header .title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+  }
+  .list-header .count {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .list-header .breakdown {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .list-header .breakdown .sw { color: var(--success); }
+  .list-header .breakdown .nw { color: var(--yellow); }
+  .header-spacer { flex: 1; }
+
+  .small-btn {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .small-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text-muted); }
+  .small-btn svg { display: block; }
+  .small-btn.solid { border-style: solid; }
+  .small-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+
+  .list-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+  .list-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 6px 8px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: background 120ms, border-color 120ms;
+    cursor: grab;
+  }
+  .list-row:hover { border-color: var(--text-muted); }
+  .list-row.dragging { display: none; }
+  .list-row.drag-over { border-color: var(--accent); border-top: 2px solid var(--accent); }
+
+  .drop-placeholder {
+    background: var(--accent-soft);
+    border: 2px dashed var(--accent);
+    border-radius: 8px;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .list-row .grip {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    color: var(--text-muted);
+    font-size: 14px;
+    user-select: none;
+    line-height: 1;
+    align-self: start;
+    padding-top: 1px;
+  }
+  .list-row .name {
+    grid-column: 2;
+    grid-row: 1;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .list-row .top-status {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
+  }
+  .list-row .meta-line {
+    grid-column: 2 / span 2;
+    grid-row: 2;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .list-row .grammar-tag {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .status-pill {
+    display: inline-block;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transition: all 120ms;
+  }
+  .status-pill.validated {
+    border-color: var(--success);
+    color: var(--success);
+    background: var(--success-soft);
+  }
+  .status-pill.needs-validating {
+    color: var(--yellow);
+    background: var(--yellow-soft);
+  }
+  .status-pill:hover { filter: brightness(1.18); }
+
+  .list-row .row-note-display {
+    grid-column: 2 / span 2;
+    grid-row: 3;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    border-left: 2px solid var(--border);
+    padding-left: 8px;
+  }
+  .list-row .row-note-display .note-icon { opacity: 0.6; font-size: 11px; font-style: normal; display: flex; }
+  .list-row .row-note-edit {
+    grid-column: 2 / span 2;
+    grid-row: 3;
+    display: flex;
+    gap: 6px;
+  }
+  .list-row .row-note-edit input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 12px;
+  }
+  .list-row .row-note-edit input:focus { outline: none; border-color: var(--accent); }
+  .list-row .row-note-edit button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .list-row .row-note-edit button:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .list-row .row-actions {
+    grid-column: 2 / span 2;
+    grid-row: 4;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .divider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border: 1px dashed transparent;
+    border-radius: 6px;
+    cursor: grab;
+    transition: border-color 120ms;
+  }
+  .divider-row:hover { border-color: var(--border); }
+  .divider-row.dragging { display: none; }
+  .divider-row.drag-over { border-color: var(--accent); border-top: 2px solid var(--accent); }
+  .divider-row .grip { color: var(--text-muted); font-size: 12px; user-select: none; }
+  .divider-row .line { flex: 1; height: 0; border-top: 1px dashed var(--border); }
+  .divider-row input.label {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    min-width: 80px;
+    width: auto;
+  }
+  .divider-row input.label:focus, .divider-row input.label:hover {
+    outline: none;
+    border-color: var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .divider-row .row-actions { opacity: 0; }
+  .divider-row:hover .row-actions { opacity: 1; }
+
+  .list-empty {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+    padding: 18px 8px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(40px);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms, transform 180ms;
+    z-index: 2000;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    z-index: 1000;
+    overflow-y: auto;
+    backdrop-filter: blur(2px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 880px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-compare {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 12px;
+  }
+  .modal-compare .lbl { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; align-self: center; }
+  .modal-compare .val {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    word-break: break-all;
+  }
+  .modal-compare .val.from { color: var(--text-muted); }
+  .modal-compare .val.to { color: var(--text); }
+  .modal-body { padding: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Token Name Tester</h1>
+    <div class="sub">Generates valid token names per token-naming-convention-[wip].md and scale-families.md</div>
+  </header>
+
+  <!-- Rules source -->
+  <div class="rules-panel" id="rulesPanel">
+    <div class="rules-summary-row" id="rulesToggle">
+      <span class="icon-toggle">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 6 15 12 9 18"></polyline>
+        </svg>
+      </span>
+      <span class="label">Rules source</span>
+      <span class="source" id="rulesSource">Defaults</span>
+    </div>
+    <div class="rules-body">
+      <div class="rules-row">
+        <span class="file-label">token-naming-convention.md</span>
+        <button class="small-btn solid" id="uploadConventionBtn">Upload…</button>
+        <button class="small-btn solid" id="resetConventionBtn">Reset to default</button>
+        <input type="file" accept=".md,.markdown,.txt" id="uploadConvention">
+        <span class="file-status" id="conventionStatus">Using default rules</span>
+      </div>
+      <div class="rules-row">
+        <span class="file-label">scale-families.md</span>
+        <button class="small-btn solid" id="uploadFamiliesBtn">Upload…</button>
+        <button class="small-btn solid" id="resetFamiliesBtn">Reset to default</button>
+        <input type="file" accept=".md,.markdown,.txt" id="uploadFamilies">
+        <span class="file-status" id="familiesStatus">Using default rules</span>
+      </div>
+      <div class="rules-summary-text" id="rulesSummary">
+        Uploaded MD files expand the rule-bending pool with the value tokens found in their <strong>Examples</strong> sections, and replace canonical slot options where flat enumerations can be parsed. Per-slot canonical lists fall back to defaults where parsing isn't possible.
+      </div>
+    </div>
+  </div>
+
+  <div class="grammar-prompt">1. Pick a grammar</div>
+  <div class="grammar-grid" id="grammars"></div>
+
+  <div class="grammar-details" id="grammarDetails" hidden>
+    <div class="details-header" id="detailsToggle">
+      <span class="icon-toggle">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 6 15 12 9 18"></polyline>
+        </svg>
+      </span>
+      <span class="label">Grammar details</span>
+      <span class="target" id="detailsTarget"></span>
+    </div>
+    <div class="details-body" id="detailsBody"></div>
+  </div>
+
+  <div id="builderHome">
+    <div class="builder" id="builder">
+      <div class="path" id="path"></div>
+      <div id="step"></div>
+      <div class="footer">
+        <button class="ghost-btn" id="back">← Back</button>
+        <button class="ghost-btn" id="reset">Reset</button>
+        <div class="spacer"></div>
+        <button class="pill-btn success create-only" id="addValidated" disabled>+ Validated</button>
+        <button class="pill-btn warn create-only" id="addNeedsWork" disabled>+ Validation required</button>
+        <button class="copy-btn create-only" id="copy" disabled>Copy</button>
+        <button class="ghost-btn edit-only" id="cancelEdit">Cancel</button>
+        <button class="copy-btn edit-only" id="saveEdit">Save changes</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="list-section" data-list="tokens">
+    <div class="list-header">
+      <span class="title">Tokens</span>
+      <span class="count" id="tokenCount">0</span>
+      <span class="breakdown" id="tokenBreakdown"></span>
+      <span class="header-spacer"></span>
+      <button class="small-btn" data-add-divider="tokens">+ Divider</button>
+      <button class="small-btn solid" data-clear="tokens">Clear</button>
+    </div>
+    <div class="list-rows" id="listTokens"></div>
+  </section>
+
+  <!-- Edit modal -->
+  <div class="modal-overlay" id="editModal" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <span>Edit token</span>
+        <button class="modal-close" id="editModalClose">×</button>
+      </div>
+      <div class="modal-compare" id="modalCompare">
+        <span class="lbl">Changing from</span>
+        <span class="val from" id="modalFrom"></span>
+        <span class="lbl">Changing to</span>
+        <span class="val to" id="modalTo"></span>
+      </div>
+      <div class="modal-body" id="editModalBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<svg style="display:none">
+  <symbol id="ic-file-pen" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/>
+      <path d="M14 2v6h6"/>
+      <path d="m18.4 2.6 3 3-7.4 7.4H11v-3l7.4-7.4Z"/>
+    </g>
+  </symbol>
+  <symbol id="ic-pencil" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+      <path d="m15 5 4 4"/>
+    </g>
+  </symbol>
+  <symbol id="ic-copy" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+    </g>
+  </symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+    </g>
+  </symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </g>
+  </symbol>
+  <symbol id="ic-alert" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </g>
+  </symbol>
+  <symbol id="ic-chevron" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </g>
+  </symbol>
+</svg>
+
+<script>
+// ---------- Default Grammars (fallback rules) ----------
+const DEFAULT_GRAMMARS = {
+  semanticRole: {
+    name: "Semantic Role",
+    pattern: "role.intent(.emphasis)(.state)",
+    slots: [
+      { name: "role", required: true, options: () => ["bg", "fg", "border", "outline", "shadow"] },
+      { name: "intent", required: true,
+        options: (p) => {
+          const base = ["default", "muted", "brand", "neutral", "success", "warning", "danger", "info", "focus"];
+          if (p[0] === "fg") return [...base, "on-default", "on-muted", "on-brand", "on-emphasis", "on-success", "on-warning", "on-danger", "on-info"];
+          return base;
+        } },
+      { name: "emphasis", required: false, options: () => ["subtle", "bold"] },
+      { name: "state", required: false, options: () => ["hover", "pressed", "focus", "disabled", "selected", "visited"] },
+    ],
+  },
+  component: {
+    name: "Component",
+    pattern: "component(.variant)(.part).property(.state)",
+    slots: [
+      { name: "component", required: true, options: () => ["button", "input", "card", "tooltip", "tab", "dialog"] },
+      { name: "variant", required: false, options: () => ["primary", "secondary", "ghost", "danger"] },
+      { name: "part", required: false, options: () => ["background", "label", "icon", "border", "arrow", "header", "footer"] },
+      { name: "property", required: true, options: () => ["color", "padding", "size", "radius", "gap"] },
+      { name: "state", required: false, options: () => ["hover", "pressed", "focus", "disabled", "selected"] },
+    ],
+  },
+  primitiveScale: {
+    name: "Primitive Scale",
+    pattern: "scale-category(.sub-category).step",
+    slots: [
+      { name: "scale-category", required: true, options: () => ["color", "space", "radius", "font", "shadow", "duration", "z", "border", "opacity"] },
+      { name: "sub-category", required: false, autoSkipIfNoOptions: true,
+        options: (p) => {
+          const cat = p[0];
+          const map = {
+            color: ["blue", "gray", "red", "green", "yellow", "orange", "purple", "pink", "teal", "neutral"],
+            font: ["size", "weight", "family"],
+            border: ["radius", "width"],
+          };
+          return map[cat] || [];
+        } },
+      { name: "step", required: true,
+        options: (p) => {
+          const cat = p[0]; const sub = p[1];
+          if (cat === "color") return ["50","100","200","300","400","500","600","700","800","900","950"];
+          if (cat === "space") return ["0","2","4","8","12","16","20","24","32","40","48","64","80","96"];
+          if (cat === "radius" || (cat === "border" && sub === "radius")) return ["2","4","8","12","16","24","32","999"];
+          if (cat === "font" && sub === "size") return ["10","12","14","16","18","20","24","28","32","40","48","56","64"];
+          if (cat === "font" && sub === "weight") return ["100","200","300","400","500","600","700","800","900"];
+          if (cat === "duration") return ["50","100","150","200","300","500","700","1000"];
+          if (cat === "shadow") return ["1","2","3","4","5"];
+          if (cat === "z") return ["0","10","20","30","40","50","100","999"];
+          if (cat === "opacity") return ["0","10","20","40","60","80","100"];
+          if (cat === "border" && sub === "width") return ["1","2","4","8"];
+          return [];
+        } },
+    ],
+  },
+  semanticPropertyScale: {
+    name: "Semantic Property Scale",
+    pattern: "property(.sub-property).step",
+    slots: [
+      { name: "property", required: true, options: () => ["radius", "space", "border", "opacity", "duration", "font", "shadow"] },
+      { name: "sub-property", required: false, autoSkipIfNoOptions: true,
+        options: (p) => {
+          const prop = p[0];
+          const map = { border: ["width", "radius"], font: ["weight", "size", "family"] };
+          return map[prop] || [];
+        } },
+      { name: "step", required: true,
+        options: (p) => {
+          const prop = p[0]; const sub = p[1];
+          if (prop === "radius" || (prop === "border" && sub === "radius")) return ["none", "subtle", "sm", "md", "lg", "xl", "full"];
+          if (prop === "space") return ["xs", "sm", "md", "lg", "xl", "2xl", "3xl"];
+          if (prop === "opacity") return ["subtle", "default", "bold", "strong"];
+          if (prop === "duration") return ["instant", "fast", "medium", "slow"];
+          if (prop === "border" && sub === "width") return ["thin", "regular", "thick"];
+          if (prop === "font" && sub === "weight") return ["subtle", "default", "bold", "strong"];
+          if (prop === "font" && sub === "size") return ["xs", "sm", "md", "lg", "xl", "2xl", "3xl"];
+          if (prop === "font" && sub === "family") return ["sans", "serif", "mono"];
+          if (prop === "shadow") return ["none", "subtle", "default", "bold"];
+          return [];
+        } },
+    ],
+  },
+  roleScopedPropertyScale: {
+    name: "Role-Scoped Property Scale",
+    pattern: "category.role.property(.sub-property).step",
+    slots: [
+      { name: "category", required: true, options: () => ["typography", "spacing", "motion", "elevation"] },
+      { name: "role", required: true,
+        options: (p) => {
+          const cat = p[0];
+          const map = {
+            typography: ["body", "heading", "caption", "display"],
+            spacing: ["stack", "inline", "inset"],
+            motion: ["enter", "exit", "transition"],
+            elevation: ["card", "popover", "modal", "toast"],
+          };
+          return map[cat] || [];
+        } },
+      { name: "property", required: true,
+        options: (p) => {
+          const cat = p[0];
+          const map = { typography: ["font"], spacing: ["gap", "padding"], motion: ["duration", "ease"], elevation: ["shadow"] };
+          return map[cat] || [];
+        } },
+      { name: "sub-property", required: false, autoSkipIfNoOptions: true,
+        options: (p) => {
+          const prop = p[2];
+          const map = { font: ["weight", "size", "family"], border: ["width", "radius"] };
+          return map[prop] || [];
+        } },
+      { name: "step", required: true,
+        options: (p) => {
+          const prop = p[2]; const sub = p[3];
+          if (prop === "font" && sub === "size") return ["xs", "sm", "md", "lg", "xl", "2xl", "3xl"];
+          if (prop === "font" && sub === "weight") return ["subtle", "default", "bold", "strong"];
+          if (prop === "font" && sub === "family") return ["sans", "serif", "mono"];
+          if (prop === "gap" || prop === "padding") return ["xs", "sm", "md", "lg", "xl", "2xl", "3xl"];
+          if (prop === "duration") return ["instant", "fast", "medium", "slow"];
+          if (prop === "shadow") return ["none", "subtle", "default", "bold"];
+          if (prop === "ease") return ["linear", "in", "out", "in-out"];
+          return ["xs", "sm", "md", "lg", "xl"];
+        } },
+    ],
+  },
+};
+
+// Heading text → grammar key (used to match parsed MD sections)
+const NAME_TO_KEY = {
+  "Primitive Scales": "primitiveScale",
+  "Semantic Property Scales": "semanticPropertyScale",
+  "Semantic Role-Scoped Property Scales": "roleScopedPropertyScale",
+  "Semantic Roles": "semanticRole",
+  "Components": "component",
+};
+
+// Default descriptions for each grammar (mirrors token-naming-convention-[wip].md)
+const DEFAULT_GRAMMAR_INFO = {
+  primitiveScale: {
+    description: "Primitive tokens frequently define scales (colour ramps, space, radius, duration, font-size, etc). This grammar helps define these in a consistent way.",
+    whenToUse: "Use this grammar whenever you need to define a primitive scale with a numeric step.",
+    whenToAvoid: "Avoid this grammar if you need to define a scale with non-numeric steps (see Semantic - Property Scales).",
+    slotDescriptions: {
+      "scale-category": "The kind of value (color, space, radius, font, shadow, duration, z).",
+      "sub-category": "The sub-category within the category (color: blue, gray; font: weight, size, family). Omitted for single-dimension categories.",
+      "step": "The numeric position on the scale (4, 8, 100, 500).",
+    },
+  },
+  semanticPropertyScale: {
+    description: "Unlike Primitive Scales (that use numeric `step` slot values), Semantic Property Scales use semantic `step` slot values. Each (sub-)property's `step`s all map to positions on the same underlying Primitive Scale. `border.radius.none`, `border.radius.sm`, `border.radius.md` are all positions on the `radius` Primitive Scale.",
+    whenToUse: "Use this grammar whenever you need to apply a semantic scale family to a property.",
+    whenToAvoid: "Avoid this grammar if you need to define a primitive scale with a numeric step (see Primitive Scales).",
+    slotDescriptions: {
+      "property": "The design property (radius, border, space, opacity, duration, etc).",
+      "sub-property": "The sub-property within the property (border: width, radius; font: weight, family, etc).",
+      "step": "Semantic scale family (t-shirt: `sm`, `md`, `lg`; emphasis: `subtle`, `default`, `bold`; density: `tight`, `normal`, `loose`; etc).",
+    },
+  },
+  roleScopedPropertyScale: {
+    description: "Property Scales work well because each (sub-)property's `step` references the same scale. In practice though, you tend to need a different scale as soon as a property is paired to a particular role. Role-Scoped Property Scales handle this by introducing a `role` slot (grouped under a `category`) that lets the (sub-)property's `step` reference a different scale. For example, `typography.body.font.size.sm` and `typography.heading.font.size.sm` share `property`, `sub-property`, and `step` names but resolve to different values.",
+    whenToUse: "Use this grammar when the (sub-)property's `step` needs to reference a different scale based on the `role`.",
+    whenToAvoid: "Avoid this grammar if a (sub-)property's `step` always references the same scale (see Semantic Property Scales).",
+    slotDescriptions: {
+      "category": "The design domain (typography, spacing, etc).",
+      "role": "The role within the category (body/heading/caption for typography; inline/stack/inset for spacing, etc).",
+      "property": "The design property (radius, border, space, opacity, duration, etc).",
+      "sub-property": "The sub-property within the property (border: width, radius; font: weight, family, etc).",
+      "step": "Semantic scale family (t-shirt: `sm`, `md`, `lg`; emphasis: `subtle`, `default`, `bold`; density: `tight`, `normal`, `loose`; etc).",
+    },
+  },
+  semanticRole: {
+    description: "Where the scale grammars refer to positions on a scale, the Semantic Roles grammar refers to purposes (independent of which components use them); the `intent`, `emphasis`, and `state` slots carry semantic meaning rather than scale position. Slots are optional from right to left — drop what you don't need. A slot holding its default value is omitted.",
+    whenToUse: "Use this grammar for tokens that describe a purpose in the UI rather than a position on a scale.",
+    whenToAvoid: "Avoid this grammar if you're naming a position on a scale (see Semantic Property Scales or Role-Scoped Property Scales).",
+    slotDescriptions: {
+      "role": "Where the token applies (`bg`, `fg`, `border`, `outline`, `shadow`).",
+      "intent": "The semantic meaning being expressed (`default`, `muted`, `brand`, `neutral`, `success`, `warning`, `danger`, `info`, `focus`, plus `on-*` variants for `fg`).",
+      "emphasis": "Visual weight within the role+intent (`subtle`, `bold`). Only present when role+intent has more than one emphasis level.",
+      "state": "Interaction state (`hover`, `pressed`, `focus`, `disabled`, `selected`, `visited`). Omitted for the resting state.",
+    },
+  },
+  component: {
+    description: "Components consume Semantic Roles tokens by default. A component token is created only when there's something component-specific to encode: a value that differs from what a Semantic Roles token would resolve to, or a value that has no Semantic Roles equivalent (component-specific dimensions, paddings, gaps). When a component token is created, it references a Semantic Roles token where one fits, or a Semantic Property Scale or Primitive where no semantic equivalent exists.",
+    whenToUse: "Use this grammar when a component needs a value that diverges from a Semantic Roles token, or needs a value that has no Semantic Roles equivalent (typically dimensions and layout measurements).",
+    whenToAvoid: "Avoid this grammar when a Semantic Roles token, Semantic Property Scale, or Primitive can be consumed directly without compromise. Component tokens that are simple aliases of semantic tokens don't earn their own existence.",
+    slotDescriptions: {
+      "component": "The component name (`button`, `input`, `card`, `tooltip`, `tab`, `dialog`).",
+      "variant": "The component variant (`primary`, `secondary`, `ghost`, `danger`). Omitted when the component has no variants.",
+      "part": "The sub-element (`background`, `label`, `icon`, `border`, `arrow`, `header`, `footer`). Omitted when the component is atomic.",
+      "property": "The property being tokenized (`color`, `padding`, `size`, `radius`, `gap`).",
+      "state": "Interaction state (`hover`, `pressed`, `focus`, `disabled`, `selected`). Omitted for the resting state.",
+    },
+  },
+};
+
+// Default examples used in the grammar-details accordion when no MD is uploaded
+const DEFAULT_EXAMPLES = {
+  semanticRole: [
+    "bg.default", "bg.brand.subtle", "bg.brand.bold.hover", "bg.danger.subtle",
+    "fg.default", "fg.muted", "fg.danger", "fg.on-brand", "fg.on-emphasis",
+    "border.default", "border.danger", "outline.focus", "shadow.default",
+  ],
+  component: [
+    "button.primary.background.color.hover", "button.primary.label.color",
+    "button.ghost.border.color.focus", "card.padding.size", "card.header.padding.size",
+    "tooltip.arrow.size", "input.border.color.danger", "tab.indicator.size",
+  ],
+  primitiveScale: [
+    "duration.200", "shadow.2", "space.4", "border.radius.8",
+    "color.blue.500", "color.gray.900", "font.size.16", "font.weight.400",
+  ],
+  semanticPropertyScale: [
+    "border.radius.none", "border.radius.sm", "border.radius.md",
+    "border.width.thin", "border.width.thick", "space.sm",
+    "opacity.subtle", "duration.fast", "font.weight.bold", "font.size.xl",
+  ],
+  roleScopedPropertyScale: [
+    "typography.body.font.weight.strong", "typography.heading.font.size.lg",
+    "spacing.stack.gap.md",
+  ],
+};
+
+// ---------- State ----------
+const LS_KEY = "tokenNameBuilder.lists.v3";
+const LS_KEY_V2 = "tokenNameBuilder.lists.v2";
+const LS_KEY_V1 = "tokenNameBuilder.lists.v1";
+const LS_DOCS = "tokenNameBuilder.docs.v1";
+
+const state = {
+  grammar: null,
+  values: [],
+  pendingPrefix: null,
+  tokens: [], // unified list: { type:'token', id, grammar, values, status, note? } | { type:'divider', id, label? }
+  editing: null,
+  mainBackup: null,
+  docs: { convention: null, families: null }, // { name, text } each
+  parsed: { convention: null, families: null }, // parsed structures
+};
+
+// ---------- Persistence ----------
+function loadStorage() {
+  try {
+    let raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.tokens = (data.tokens || []).map(migrateItem);
+    } else {
+      // migrate from v2 (two-list structure)
+      const v2raw = localStorage.getItem(LS_KEY_V2) || localStorage.getItem(LS_KEY_V1);
+      if (v2raw) {
+        const data = JSON.parse(v2raw);
+        const merged = [];
+        for (const item of (data.validated || [])) {
+          const m = migrateItem(item);
+          if (m.type === "token") m.status = "validated";
+          merged.push(m);
+        }
+        for (const item of (data.needsWork || [])) {
+          const m = migrateItem(item);
+          if (m.type === "token") m.status = "needs-validating";
+          merged.push(m);
+        }
+        state.tokens = merged;
+      }
+    }
+  } catch (e) {}
+  try {
+    const docsRaw = localStorage.getItem(LS_DOCS);
+    if (docsRaw) {
+      state.docs = JSON.parse(docsRaw);
+      reparseDocs();
+    }
+  } catch (e) {}
+}
+
+function migrateItem(item) {
+  if (!item) return item;
+  if (!item.type) item.type = "token";
+  if (item.type === "token") {
+    if (Array.isArray(item.values)) {
+      item.values = item.values.map(entry => {
+        if (entry === null || entry === undefined) return null;
+        if (typeof entry.c === "boolean") return { v: entry.v, c: entry.c ? "custom" : false };
+        return entry;
+      });
+    }
+    if (!item.status) item.status = "validated";
+  }
+  return item;
+}
+
+function saveTokens() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ tokens: state.tokens })); } catch (e) {}
+}
+function saveDocs() {
+  try { localStorage.setItem(LS_DOCS, JSON.stringify(state.docs)); } catch (e) {}
+}
+
+// ---------- MD parsing ----------
+function parseConvention(md) {
+  const out = { grammars: {} };
+  if (!md) return out;
+
+  const sections = md.split(/\n###\s+/);
+  for (const section of sections.slice(1)) {
+    const lines = section.split("\n");
+    const heading = (lines[0] || "").trim();
+    const key = NAME_TO_KEY[heading];
+    if (!key) continue;
+
+    const body = section;
+    const grammarMatch = body.match(/\*\*Grammar:\*\*\s*`([^`]+)`/);
+    if (!grammarMatch) continue;
+    const pattern = grammarMatch[1];
+
+    // Parse slot canonical options + descriptions from "**Slots:**" section
+    const slotOptions = {};
+    const slotDescriptions = {};
+    const slotsBlockMatch = body.match(/\*\*Slots:\*\*\s*\n((?:- [^\n]+\n?)+)/);
+    if (slotsBlockMatch) {
+      const slotLines = slotsBlockMatch[1].split("\n").filter(l => l.trim().startsWith("- "));
+      for (const line of slotLines) {
+        const nameMatch = line.match(/-\s*`([^`]+?)(?:\s+\(optional\))?`/);
+        if (!nameMatch) continue;
+        const slotName = nameMatch[1].trim();
+        // Description (the part after the colon, full text)
+        const descMatch = line.match(/-\s*`[^`]+`:\s*(.+)$/);
+        if (descMatch) slotDescriptions[slotName] = descMatch[1].trim();
+        // Flat enumerated values
+        const parens = [...line.matchAll(/\(([^()]+)\)/g)].map(m => m[1]);
+        let bestVals = null;
+        for (const p of parens) {
+          if (p.includes(":")) continue;
+          const items = p.split(",").map(s => s.trim()).filter(Boolean);
+          if (items.length >= 2 && items.every(x => /^[\w\-]+$/.test(x))) {
+            if (!bestVals || items.length > bestVals.length) bestVals = items;
+          }
+        }
+        if (bestVals) slotOptions[slotName] = bestVals;
+      }
+    }
+
+    // Top-level fields
+    const description = extractMdField(body, "Description");
+    const whenToUse = extractMdField(body, "When to use");
+    const whenToAvoid = extractMdField(body, "When to avoid");
+
+    // Examples
+    const examples = [];
+    const examplesMatch = body.match(/\*\*Examples:\*\*\s*\n((?:- [^\n]+\n?)+)/);
+    if (examplesMatch) {
+      for (const m of examplesMatch[1].matchAll(/`([^`]+)`/g)) examples.push(m[1]);
+    }
+
+    out.grammars[key] = { pattern, slotOptions, slotDescriptions, description, whenToUse, whenToAvoid, examples };
+  }
+  return out;
+}
+
+function extractMdField(body, label) {
+  const re = new RegExp(`\\*\\*${label}:\\*\\*\\s*([^\\n]+)`, "i");
+  const m = body.match(re);
+  return m ? m[1].trim() : null;
+}
+
+function inlineMd(text) {
+  if (!text) return "";
+  let s = escapeHtml(text);
+  s = s.replace(/`([^`]+)`/g, '<code class="inline-mono">$1</code>');
+  return s;
+}
+
+function parseFamilies(md) {
+  const out = { families: {} };
+  if (!md) return out;
+  const sections = md.split(/\n##\s+/);
+  for (const section of sections.slice(1)) {
+    const lines = section.split("\n");
+    const heading = (lines[0] || "").trim();
+    if (!heading) continue;
+    const vocabMatch = section.match(/\*\*Vocabulary:\*\*\s*(.+)/);
+    if (vocabMatch) {
+      const vocab = [...vocabMatch[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+      out.families[heading] = { vocab };
+    }
+  }
+  return out;
+}
+
+function reparseDocs() {
+  state.parsed.convention = state.docs.convention ? parseConvention(state.docs.convention.text) : null;
+  state.parsed.families = state.docs.families ? parseFamilies(state.docs.families.text) : null;
+}
+
+// Active grammar resolution: replaces canonical slot options with parsed ones when available.
+function activeGrammar(key) {
+  const def = DEFAULT_GRAMMARS[key];
+  if (!def) return null;
+  const parsed = state.parsed.convention?.grammars?.[key];
+  if (!parsed) return def;
+
+  return {
+    ...def,
+    slots: def.slots.map(slot => {
+      const parsedVals = parsed.slotOptions?.[slot.name];
+      if (parsedVals && parsedVals.length > 0) {
+        return { ...slot, options: () => parsedVals };
+      }
+      return slot;
+    }),
+    _parsed: parsed,
+  };
+}
+
+// ---------- Helpers ----------
+const $ = (id) => document.getElementById(id);
+function filledStrings(values) { return values.filter(x => x && x.v != null && x.v !== "").map(x => x.v); }
+function tokenString(values) { return filledStrings(values).join("."); }
+function tokenHtml(values) {
+  return values
+    .filter(x => x && x.v != null && x.v !== "")
+    .map(x => {
+      if (x.c === "custom") return `<span class="custom-val tip" data-tip="Custom value — not in the approved options listed in the docs.">${escapeHtml(x.v)}</span>`;
+      if (x.c === "rule-break") return `<span class="rule-break-val tip" data-tip="Approved value used in the wrong slot — breaks the grammar's slot rules.">${escapeHtml(x.v)}</span>`;
+      return `<span class="filled">${escapeHtml(x.v)}</span>`;
+    })
+    .join('<span class="dot">.</span>');
+}
+function currentSlot() {
+  if (!state.grammar) return null;
+  const g = activeGrammar(state.grammar);
+  const idx = state.values.length;
+  return idx < g.slots.length ? g.slots[idx] : null;
+}
+function isDone() {
+  if (!state.grammar) return false;
+  const g = activeGrammar(state.grammar);
+  return state.values.length >= g.slots.length;
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+
+function allApprovedOptions(grammarKey) {
+  const g = activeGrammar(grammarKey);
+  const set = new Set();
+
+  // Pull from parsed examples
+  const parsed = state.parsed.convention?.grammars?.[grammarKey];
+  if (parsed?.examples?.length) {
+    for (const ex of parsed.examples) {
+      for (const part of ex.split(".")) set.add(part);
+    }
+  }
+
+  // Pull from each slot's options across multiple probe paths
+  const probes = [
+    [],
+    ["bg"], ["fg"], ["border"], ["outline"], ["shadow"],
+    ["color"], ["color","blue"], ["color","gray"],
+    ["space"], ["radius"], ["font"], ["font","size"], ["font","weight"], ["font","family"],
+    ["border","radius"], ["border","width"],
+    ["duration"], ["shadow"], ["z"], ["opacity"],
+    ["typography"], ["typography","body"], ["typography","heading"], ["typography","caption"], ["typography","display"],
+    ["typography","heading","font"], ["typography","heading","font","size"], ["typography","heading","font","weight"],
+    ["spacing"], ["spacing","stack"], ["spacing","stack","gap"], ["spacing","inline","gap"],
+    ["motion"], ["motion","enter","duration"], ["motion","enter","ease"],
+    ["elevation"], ["elevation","card","shadow"],
+    ["button"], ["button","primary"], ["button","primary","background"], ["button","primary","background","color"],
+    ["input"], ["card"], ["tooltip"], ["tab"], ["dialog"],
+  ];
+  for (const slot of g.slots) {
+    for (const p of probes) {
+      try {
+        const opts = slot.options(p) || [];
+        for (const o of opts) set.add(o);
+      } catch (_) {}
+    }
+  }
+
+  // Merge in parsed scale-family vocabularies (broader rule-bending pool)
+  if (state.parsed.families) {
+    for (const fam of Object.values(state.parsed.families.families || {})) {
+      for (const v of fam.vocab || []) set.add(v);
+    }
+  }
+
+  return Array.from(set);
+}
+
+// ---------- Wizard ----------
+function autoSkipIfNeeded() {
+  while (true) {
+    const slot = currentSlot();
+    if (!slot) break;
+    const filled = filledStrings(state.values);
+    const opts = slot.options(filled) || [];
+    if (!slot.required && slot.autoSkipIfNoOptions && opts.length === 0) {
+      state.values.push(null);
+      continue;
+    }
+    break;
+  }
+}
+function pickValue(v, mark = false) {
+  if (state.pendingPrefix) {
+    const combined = state.pendingPrefix + v;
+    state.pendingPrefix = null;
+    state.values.push({ v: combined, c: "rule-break" });
+  } else {
+    state.values.push({ v, c: mark || false });
+  }
+  autoSkipIfNeeded();
+  render();
+}
+function startPrefix(prefix) { state.pendingPrefix = prefix; render(); }
+function commitPrefixAsIs() {
+  if (!state.pendingPrefix) return;
+  const v = state.pendingPrefix;
+  state.pendingPrefix = null;
+  state.values.push({ v, c: "rule-break" });
+  autoSkipIfNeeded();
+  render();
+}
+function cancelPrefix() { state.pendingPrefix = null; render(); }
+function skipSlot() { state.values.push(null); autoSkipIfNeeded(); render(); }
+function back() {
+  if (state.pendingPrefix) { state.pendingPrefix = null; render(); return; }
+  if (state.values.length === 0) return;
+  state.values.pop();
+  render();
+}
+function resetWizard() {
+  state.values = [];
+  state.pendingPrefix = null;
+  if (state.grammar) autoSkipIfNeeded();
+  render();
+}
+function addToken(status) {
+  if (!isDone() || state.pendingPrefix) return;
+  const item = {
+    type: "token",
+    id: uid(),
+    grammar: state.grammar,
+    values: JSON.parse(JSON.stringify(state.values)),
+    note: "",
+    status,
+  };
+  state.tokens.push(item);
+  saveTokens();
+  showToast(`Added as ${status === "validated" ? "Validated" : "Validation required"}`);
+  state.values = [];
+  state.pendingPrefix = null;
+  if (state.grammar) autoSkipIfNeeded();
+  render();
+}
+function copyResult() {
+  const t = tokenString(state.values);
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(() => {
+    const btn = $("copy");
+    const old = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = old, 1200);
+  });
+}
+
+// ---------- Edit modal ----------
+function openEditModal(tokenId) {
+  const item = state.tokens.find(x => x.id === tokenId);
+  if (!item || item.type !== "token") return;
+
+  state.mainBackup = {
+    grammar: state.grammar,
+    values: JSON.parse(JSON.stringify(state.values)),
+    pendingPrefix: state.pendingPrefix,
+  };
+  state.grammar = item.grammar;
+  state.values = JSON.parse(JSON.stringify(item.values));
+  state.pendingPrefix = null;
+  state.editing = { tokenId, originalValues: JSON.parse(JSON.stringify(item.values)) };
+
+  const builder = $("builder");
+  builder.classList.add("editing");
+  $("editModalBody").appendChild(builder);
+  $("modalFrom").textContent = tokenString(item.values);
+  $("editModal").classList.add("open");
+  render();
+}
+function closeEditModal(save) {
+  if (!state.editing) return;
+  if (save) {
+    const { tokenId } = state.editing;
+    const item = state.tokens.find(x => x.id === tokenId);
+    if (item) {
+      item.grammar = state.grammar;
+      item.values = JSON.parse(JSON.stringify(state.values));
+      saveTokens();
+      showToast(`Saved: ${tokenString(item.values)}`);
+    }
+  }
+  if (state.mainBackup) {
+    state.grammar = state.mainBackup.grammar;
+    state.values = state.mainBackup.values;
+    state.pendingPrefix = state.mainBackup.pendingPrefix;
+  }
+  state.mainBackup = null;
+  state.editing = null;
+
+  const builder = $("builder");
+  builder.classList.remove("editing");
+  $("builderHome").appendChild(builder);
+  $("editModal").classList.remove("open");
+  render();
+}
+
+// ---------- Renderers ----------
+function renderRulesPanel() {
+  const cs = $("conventionStatus");
+  const fs = $("familiesStatus");
+  const src = $("rulesSource");
+  let any = false;
+
+  if (state.docs.convention) {
+    cs.textContent = `Active: ${state.docs.convention.name}`;
+    cs.classList.add("active");
+    any = true;
+  } else {
+    cs.textContent = "Using default rules";
+    cs.classList.remove("active");
+  }
+  if (state.docs.families) {
+    fs.textContent = `Active: ${state.docs.families.name}`;
+    fs.classList.add("active");
+    any = true;
+  } else {
+    fs.textContent = "Using default rules";
+    fs.classList.remove("active");
+  }
+  if (any) {
+    src.textContent = "Custom MD";
+    src.classList.add("uploaded");
+  } else {
+    src.textContent = "Defaults";
+    src.classList.remove("uploaded");
+  }
+}
+
+function renderGrammars() {
+  const wrap = $("grammars");
+  wrap.innerHTML = "";
+  for (const [key, g] of Object.entries(DEFAULT_GRAMMARS)) {
+    const btn = document.createElement("button");
+    btn.className = "grammar-card" + (state.grammar === key ? " active" : "");
+    const ag = activeGrammar(key);
+    btn.innerHTML = `<div class="name">${escapeHtml(g.name)}</div><div class="pattern">${escapeHtml(ag.pattern || g.pattern)}</div>`;
+    btn.onclick = () => {
+      state.grammar = key;
+      state.values = [];
+      state.pendingPrefix = null;
+      autoSkipIfNeeded();
+      render();
+    };
+    wrap.appendChild(btn);
+  }
+}
+
+function probedSlotOptions(slot) {
+  const set = new Set();
+  const probes = [
+    [],
+    ["bg"], ["fg"], ["border"], ["outline"], ["shadow"],
+    ["color"], ["color","blue"], ["color","gray"],
+    ["space"], ["radius"], ["font"], ["font","size"], ["font","weight"], ["font","family"],
+    ["border","radius"], ["border","width"],
+    ["duration"], ["shadow"], ["z"], ["opacity"],
+    ["typography"], ["typography","body"], ["typography","heading"], ["typography","caption"], ["typography","display"],
+    ["typography","heading","font"], ["typography","heading","font","size"], ["typography","heading","font","weight"],
+    ["spacing"], ["spacing","stack"], ["spacing","stack","gap"], ["spacing","inline","gap"],
+    ["motion"], ["motion","enter","duration"], ["motion","enter","ease"],
+    ["elevation"], ["elevation","card","shadow"],
+    ["button"], ["button","primary"], ["button","primary","background"], ["button","primary","background","color"],
+    ["input"], ["card"], ["tooltip"], ["tab"], ["dialog"],
+  ];
+  for (const p of probes) {
+    try {
+      const opts = slot.options(p) || [];
+      for (const o of opts) set.add(o);
+    } catch (_) {}
+  }
+  return Array.from(set);
+}
+
+function renderGrammarDetails() {
+  const panel = $("grammarDetails");
+  if (!state.grammar) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const def = DEFAULT_GRAMMARS[state.grammar];
+  const ag = activeGrammar(state.grammar);
+  $("detailsTarget").textContent = ag.pattern || def.pattern;
+
+  const parsed = state.parsed.convention?.grammars?.[state.grammar];
+  const fallback = DEFAULT_GRAMMAR_INFO[state.grammar] || {};
+  const description = parsed?.description || fallback.description;
+  const whenToUse = parsed?.whenToUse || fallback.whenToUse;
+  const whenToAvoid = parsed?.whenToAvoid || fallback.whenToAvoid;
+  const slotDescriptions = parsed?.slotDescriptions || fallback.slotDescriptions || {};
+  const examples = (parsed?.examples?.length ? parsed.examples : DEFAULT_EXAMPLES[state.grammar]) || [];
+
+  let body = "";
+
+  if (description) {
+    body += `<div>
+      <div class="detail-section-label">Description</div>
+      <div class="detail-text">${inlineMd(description)}</div>
+    </div>`;
+  }
+
+  if (whenToUse || whenToAvoid) {
+    body += `<div class="detail-when">`;
+    if (whenToUse) {
+      body += `<div class="detail-when-block use">
+        <div class="detail-section-label">When to use</div>
+        <div class="detail-text">${inlineMd(whenToUse)}</div>
+      </div>`;
+    }
+    if (whenToAvoid) {
+      body += `<div class="detail-when-block avoid">
+        <div class="detail-section-label">When to avoid</div>
+        <div class="detail-text">${inlineMd(whenToAvoid)}</div>
+      </div>`;
+    }
+    body += `</div>`;
+  }
+
+  body += `<div>
+    <div class="detail-section-label">Pattern</div>
+    <div class="detail-pattern">${escapeHtml(ag.pattern || def.pattern)}</div>
+  </div>`;
+
+  body += `<div>
+    <div class="detail-section-label">Slots</div>
+    <div class="detail-slots">`;
+  for (const slot of ag.slots) {
+    const options = probedSlotOptions(slot);
+    const desc = slotDescriptions[slot.name];
+    body += `
+      <div class="detail-slot">
+        <div class="detail-slot-header">
+          <span class="detail-slot-name">${escapeHtml(slot.name)}</span>
+          ${slot.required ? `<span class="detail-slot-tag req">Required</span>` : `<span class="detail-slot-tag opt">Optional</span>`}
+        </div>
+        ${desc ? `<div class="detail-slot-desc">${inlineMd(desc)}</div>` : ""}
+        <div class="detail-slot-options">
+          ${options.length === 0
+            ? `<span class="detail-slot-empty">depends on previous slots</span>`
+            : options.map(o => `<span class="detail-option">${escapeHtml(o)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+  body += `</div></div>`;
+
+  if (examples.length > 0) {
+    body += `<div>
+      <div class="detail-section-label">Examples${parsed?.examples?.length ? " (from uploaded MD)" : ""}</div>
+      <div class="detail-examples-list">
+        ${examples.map(e => `<span class="detail-example">${escapeHtml(e)}</span>`).join("")}
+      </div>
+    </div>`;
+  }
+
+  $("detailsBody").innerHTML = body;
+}
+
+function renderPath() {
+  const el = $("path");
+  if (!state.grammar) { el.innerHTML = `<span class="placeholder">pick a grammar to start…</span>`; return; }
+  const g = activeGrammar(state.grammar);
+  let parts = [];
+  state.values.forEach((entry) => {
+    if (entry === null || entry === undefined) return;
+    if (entry.v === null || entry.v === "") return;
+    if (entry.c === "custom") parts.push(`<span class="custom-val tip" data-tip="Custom value — not in the approved options listed in the docs.">${escapeHtml(entry.v)}</span>`);
+    else if (entry.c === "rule-break") parts.push(`<span class="rule-break-val tip" data-tip="Approved value used in the wrong slot — breaks the grammar's slot rules.">${escapeHtml(entry.v)}</span>`);
+    else parts.push(`<span class="filled">${escapeHtml(entry.v)}</span>`);
+  });
+  if (state.pendingPrefix) {
+    parts.push(`<span class="building">${escapeHtml(state.pendingPrefix)}</span>`);
+  } else {
+    const cursorIdx = state.values.length;
+    if (cursorIdx < g.slots.length) {
+      for (let i = cursorIdx; i < g.slots.length; i++) {
+        const slot = g.slots[i];
+        const cls = "placeholder" + (i === cursorIdx ? " cursor" : "");
+        const display = slot.required ? slot.name : `(${slot.name})`;
+        parts.push(`<span class="${cls}">${display}</span>`);
+      }
+    } else {
+      parts.push(`<span class="placeholder cursor">(extra)</span>`);
+    }
+  }
+  el.innerHTML = parts.join('<span class="dot">.</span>');
+}
+
+function renderModalCompare() {
+  if (!state.editing) return;
+  $("modalTo").innerHTML = tokenHtml(state.values) || `<span style="color:var(--text-muted)">(empty)</span>`;
+}
+
+function renderStep() {
+  const stepEl = $("step");
+  const copyBtn = $("copy");
+  const addV = $("addValidated");
+  const addN = $("addNeedsWork");
+  const saveBtn = $("saveEdit");
+
+  if (!state.grammar) {
+    stepEl.innerHTML = `<div class="empty">Pick a grammar above to start.</div>`;
+    copyBtn.disabled = true; addV.disabled = true; addN.disabled = true;
+    if (saveBtn) saveBtn.disabled = true;
+    return;
+  }
+
+  const filled = filledStrings(state.values);
+  const allApproved = allApprovedOptions(state.grammar);
+  const done = isDone();
+  let opts = [];
+  let bendOpts = allApproved.slice();
+  let slot = null;
+
+  if (!done) {
+    slot = currentSlot();
+    opts = slot.options(filled) || [];
+    bendOpts = allApproved.filter(o => !opts.includes(o));
+  }
+
+  let html = "";
+
+  if (!done) {
+    html += `
+      <div class="slot-label">
+        <span>Slot: ${escapeHtml(slot.name)}</span>
+        ${slot.required ? `<span class="req-tag">Required</span>` : `<span class="opt-tag">Optional</span>`}
+      </div>
+    `;
+  } else {
+    html += `<div class="slot-label"><span>All canonical slots filled</span></div>`;
+  }
+
+  if (state.pendingPrefix) {
+    html += `
+      <div class="prefix-banner">
+        Building compound value: <span class="prefix-mono">${escapeHtml(state.pendingPrefix)}</span> + your next pick
+        <span class="pb-spacer"></span>
+        <button id="prefixCommit" title="Use the prefix on its own">Use as-is</button>
+        <button id="prefixCancel" title="Cancel prefix">Cancel</button>
+      </div>
+    `;
+  }
+
+  if (!done) {
+    if (opts.length > 0) {
+      html += `<div class="options">`;
+      for (const o of opts) {
+        const labelExtra = state.pendingPrefix ? ` <span style="opacity:0.6">→ ${escapeHtml(state.pendingPrefix + o)}</span>` : "";
+        html += `<button class="opt-btn" data-val="${escapeHtml(o)}" data-mark="">${escapeHtml(o)}${labelExtra}</button>`;
+      }
+      if (!slot.required) html += `<button class="skip-btn" id="skip">skip →</button>`;
+      html += `</div>`;
+    } else {
+      if (!slot.required) {
+        html += `<div class="empty">No canonical options for this slot. Skip, pick rule-bending below, or type your own.</div>`;
+        html += `<button class="skip-btn" id="skip">skip →</button>`;
+      } else {
+        html += `<div class="empty">No canonical options listed for this slot — pick rule-bending below or type your own.</div>`;
+      }
+    }
+  } else {
+    html += `<div class="empty">Add extra slots from rule-bending or custom below — or save / copy the token as-is.</div>`;
+  }
+
+  // Rule-bending combobox
+  const bendChoices = ["on-", ...bendOpts.filter(o => o !== "on-")];
+  html += `
+    <div class="field-section">
+      <div class="field-label bend"><span class="dot-icon"></span>Rule bending options</div>
+      <div class="combobox" data-combobox>
+        <input type="text" class="combo-input" id="bendCombo" placeholder="search or pick a rule-bending value…" autocomplete="off" spellcheck="false" />
+        <button type="button" class="combo-arrow" id="bendArrow" tabindex="-1" aria-label="Show options">
+          <svg viewBox="0 0 24 24" width="14" height="14"><use href="#ic-chevron"/></svg>
+        </button>
+        <div class="combo-options" id="bendOptions" hidden></div>
+      </div>
+    </div>
+  `;
+
+  // Custom value field with label
+  html += `
+    <div class="field-section">
+      <div class="field-label custom"><span class="dot-icon"></span>Custom value</div>
+      <div class="custom-row">
+        <input id="customInput" placeholder="${state.pendingPrefix ? `appended to "${escapeHtml(state.pendingPrefix)}"` : "type a value not in the docs (orange highlight)…"}" autocomplete="off" spellcheck="false" />
+        <button id="customAdd">Add custom</button>
+      </div>
+    </div>
+  `;
+
+  stepEl.innerHTML = html;
+
+  stepEl.querySelectorAll(".opt-btn").forEach(b => {
+    b.onclick = () => pickValue(b.dataset.val, b.dataset.mark || false);
+  });
+  const skipBtn = $("skip");
+  if (skipBtn) skipBtn.onclick = skipSlot;
+
+  wireCombobox($("bendCombo"), $("bendArrow"), $("bendOptions"), bendChoices, (val) => {
+    if (!val) return;
+    if (!state.pendingPrefix && val.endsWith("-")) startPrefix(val);
+    else pickValue(val, "rule-break");
+  });
+
+  const pc = $("prefixCommit"); if (pc) pc.onclick = commitPrefixAsIs;
+  const px = $("prefixCancel"); if (px) px.onclick = cancelPrefix;
+
+  const input = $("customInput");
+  const add = $("customAdd");
+  const submit = () => {
+    const v = (input.value || "").trim();
+    if (!v) return;
+    if (state.pendingPrefix) { pickValue(v, "custom"); return; }
+    if (opts.includes(v)) { pickValue(v, false); return; }
+    if (allApproved.includes(v)) { pickValue(v, "rule-break"); return; }
+    pickValue(v, "custom");
+  };
+  add.onclick = submit;
+  input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
+
+  const canSave = done && !state.pendingPrefix;
+  copyBtn.disabled = !canSave;
+  addV.disabled = !canSave;
+  addN.disabled = !canSave;
+  if (saveBtn) saveBtn.disabled = !canSave;
+
+  renderModalCompare();
+}
+
+// Combobox wiring
+function wireCombobox(input, arrow, list, allOptions, onPick) {
+  if (!input || !arrow || !list) return;
+  let activeIdx = -1;
+  function showList(filter = "") {
+    const f = filter.trim().toLowerCase();
+    const matches = f === "" ? allOptions : allOptions.filter(o => o.toLowerCase().includes(f));
+    if (matches.length === 0) {
+      list.innerHTML = `<div class="combo-option no-match">no matching rule-bending option</div>`;
+    } else {
+      list.innerHTML = matches.map((o, i) =>
+        `<div class="combo-option${i === 0 ? " active" : ""}" data-val="${escapeHtml(o)}">${escapeHtml(o)}</div>`
+      ).join("");
+    }
+    activeIdx = matches.length > 0 ? 0 : -1;
+    list.hidden = false;
+  }
+  function hideList() { list.hidden = true; }
+  function setActive(idx) {
+    const items = list.querySelectorAll(".combo-option:not(.no-match)");
+    items.forEach((el, i) => el.classList.toggle("active", i === idx));
+    activeIdx = idx;
+    const el = items[idx];
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+  function commit(val) {
+    if (!val) return;
+    input.value = "";
+    hideList();
+    onPick(val);
+  }
+  input.addEventListener("focus", () => showList(input.value));
+  input.addEventListener("input", () => showList(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden) {
+      if (e.key === "ArrowDown" || e.key === "Enter") { showList(input.value); e.preventDefault(); }
+      return;
+    }
+    const items = list.querySelectorAll(".combo-option:not(.no-match)");
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive(Math.min(items.length - 1, activeIdx + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(Math.max(0, activeIdx - 1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const el = items[activeIdx];
+      if (el) commit(el.dataset.val);
+    }
+    else if (e.key === "Escape") { hideList(); }
+  });
+  input.addEventListener("blur", () => setTimeout(hideList, 150));
+  arrow.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    if (list.hidden) { input.focus(); showList(input.value); } else hideList();
+  });
+  list.addEventListener("mousedown", (e) => {
+    const el = e.target.closest(".combo-option");
+    if (!el || el.classList.contains("no-match")) return;
+    e.preventDefault();
+    commit(el.dataset.val);
+  });
+}
+
+function renderList() {
+  const el = $("listTokens");
+  const cnt = $("tokenCount");
+  const breakdown = $("tokenBreakdown");
+  const items = state.tokens;
+  const tokens = items.filter(i => i.type === "token");
+  const v = tokens.filter(t => t.status === "validated").length;
+  const n = tokens.filter(t => t.status === "needs-validating").length;
+  cnt.textContent = tokens.length;
+  breakdown.innerHTML = tokens.length === 0 ? "" :
+    `<span class="sw">${v} validated</span> · <span class="nw">${n} needs validating</span>`;
+
+  if (items.length === 0) {
+    el.innerHTML = `<div class="list-empty">Drop tokens here or build one above</div>`;
+    wireListContainer();
+    return;
+  }
+  el.innerHTML = items.map(item => renderItem(item)).join("");
+  wireRows();
+  wireListContainer();
+}
+
+function renderItem(item) {
+  if (item.type === "divider") {
+    return `
+      <div class="divider-row" draggable="true" data-id="${item.id}">
+        <span class="grip">⋮⋮</span>
+        <span class="line"></span>
+        <input class="label" type="text" placeholder="(group label)" value="${escapeHtml(item.label || "")}" data-id="${item.id}" />
+        <span class="line"></span>
+        <div class="row-actions">
+          <button class="small-btn danger" data-action="remove" data-id="${item.id}" title="Remove divider">
+            <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-x"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // token
+  const status = item.status || "validated";
+  const statusLabel = status === "validated" ? "Validated" : "Needs validating";
+  const statusTitle = `Click to switch to ${status === "validated" ? "Needs validating" : "Validated"}`;
+
+  const editingNote = item._editingNote;
+  const noteRow = editingNote
+    ? `<div class="row-note-edit">
+        <input type="text" placeholder="Add a note about this token…" value="${escapeHtml(item.note || "")}" data-action="note-input" data-id="${item.id}" />
+        <button data-action="note-save" data-id="${item.id}">Save</button>
+        <button data-action="note-cancel" data-id="${item.id}">Cancel</button>
+      </div>`
+    : (item.note
+      ? `<div class="row-note-display"><span class="note-icon">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-file-pen"/></svg>
+        </span><span>${escapeHtml(item.note)}</span></div>`
+      : "");
+
+  return `
+    <div class="list-row" draggable="true" data-id="${item.id}">
+      <span class="grip">⋮⋮</span>
+      <div class="name">${tokenHtml(item.values)}</div>
+      <div class="top-status">
+        <button class="status-pill ${status}" data-action="toggle-status" data-id="${item.id}" title="${statusTitle}">${statusLabel}</button>
+      </div>
+      <div class="meta-line">
+        <span class="grammar-tag">${escapeHtml(DEFAULT_GRAMMARS[item.grammar]?.name || item.grammar)}</span>
+      </div>
+      ${noteRow}
+      <div class="row-actions">
+        <button class="small-btn" data-action="edit-token" data-id="${item.id}" title="Edit token name">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-pencil"/></svg>
+          Edit
+        </button>
+        <button class="small-btn" data-action="note" data-id="${item.id}" title="${item.note ? "Edit note" : "Add note"}">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-file-pen"/></svg>
+          ${item.note ? "Edit note" : "Add note"}
+        </button>
+        <button class="small-btn" data-action="copy" data-id="${item.id}" title="Copy token name">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-copy"/></svg>
+          Copy
+        </button>
+        <button class="small-btn danger" data-action="remove" data-id="${item.id}" title="Remove">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-x"/></svg>
+          Remove
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- Drag and drop ----------
+let dragSource = null;
+let dropPlaceholder = null;
+
+function ensurePlaceholder(height) {
+  if (!dropPlaceholder) {
+    dropPlaceholder = document.createElement("div");
+    dropPlaceholder.className = "drop-placeholder";
+  }
+  if (height) dropPlaceholder.style.height = height + "px";
+  return dropPlaceholder;
+}
+function removePlaceholder() {
+  if (dropPlaceholder && dropPlaceholder.parentNode) {
+    dropPlaceholder.parentNode.removeChild(dropPlaceholder);
+  }
+}
+
+function wireRows() {
+  const sectionEl = document.querySelector('.list-section[data-list="tokens"]');
+  const rows = sectionEl.querySelectorAll(".list-row, .divider-row");
+  rows.forEach(row => {
+    row.addEventListener("dragstart", (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") {
+        e.preventDefault(); return;
+      }
+      const rect = row.getBoundingClientRect();
+      dragSource = { id: row.dataset.id, height: rect.height };
+      // Defer hiding so the browser can capture the drag image first
+      requestAnimationFrame(() => row.classList.add("dragging"));
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", row.dataset.id); } catch (_) {}
+    });
+    row.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      document.querySelectorAll(".drag-over-list").forEach(el => el.classList.remove("drag-over-list"));
+      // If a placeholder is still in the DOM, that's where we land
+      if (dropPlaceholder && dropPlaceholder.parentNode) {
+        dropPlaceholder.parentNode.insertBefore(row, dropPlaceholder);
+        removePlaceholder();
+      }
+      dragSource = null;
+      syncStateFromDOM();
+    });
+
+    row.querySelectorAll("[data-action]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        handleAction(btn.dataset.action, btn.dataset.id, btn);
+      });
+    });
+
+    row.querySelectorAll("input.label").forEach(inp => {
+      inp.addEventListener("click", (e) => e.stopPropagation());
+      inp.addEventListener("input", () => {
+        const item = state.tokens.find(x => x.id === inp.dataset.id);
+        if (item) { item.label = inp.value; saveTokens(); }
+      });
+    });
+
+    row.querySelectorAll("[data-action='note-input']").forEach(inp => {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleAction("note-save", inp.dataset.id, inp);
+        if (e.key === "Escape") handleAction("note-cancel", inp.dataset.id, inp);
+      });
+      inp.focus();
+    });
+  });
+}
+
+function wireListContainer() {
+  const sectionEl = document.querySelector('.list-section[data-list="tokens"]');
+  if (sectionEl._dndWired) return;
+  sectionEl._dndWired = true;
+  const rowsEl = sectionEl.querySelector('.list-rows');
+
+  sectionEl.addEventListener("dragover", (e) => {
+    if (!dragSource) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const placeholder = ensurePlaceholder(dragSource.height);
+    const after = getDragAfterElement(rowsEl, e.clientY);
+    if (after == null) {
+      if (rowsEl.lastElementChild !== placeholder) rowsEl.appendChild(placeholder);
+    } else if (after !== placeholder && after !== placeholder.nextElementSibling) {
+      rowsEl.insertBefore(placeholder, after);
+    }
+  });
+  sectionEl.addEventListener("dragleave", (e) => {
+    if (!sectionEl.contains(e.relatedTarget)) {
+      removePlaceholder();
+    }
+  });
+  sectionEl.addEventListener("drop", (e) => {
+    e.preventDefault();
+    if (!dragSource) return;
+    const dragging = rowsEl.querySelector(`[data-id="${dragSource.id}"]`);
+    if (dragging && dropPlaceholder && dropPlaceholder.parentNode) {
+      dropPlaceholder.parentNode.insertBefore(dragging, dropPlaceholder);
+    }
+    removePlaceholder();
+    syncStateFromDOM();
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('.list-row:not(.dragging), .divider-row:not(.dragging)')];
+  return els.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function syncStateFromDOM() {
+  const rowsEl = document.querySelector('.list-section[data-list="tokens"] .list-rows');
+  if (!rowsEl) return;
+  const order = [...rowsEl.children].map(el => el.dataset?.id).filter(Boolean);
+  if (!order.length) return;
+  const map = new Map(state.tokens.map(t => [t.id, t]));
+  const reordered = order.map(id => map.get(id)).filter(Boolean);
+  if (reordered.length === state.tokens.length) {
+    const changed = reordered.some((t, i) => t.id !== state.tokens[i].id);
+    state.tokens = reordered;
+    if (changed) {
+      saveTokens();
+      renderList();
+    }
+  }
+}
+
+function handleAction(action, id, btn) {
+  const arr = state.tokens;
+  const idx = arr.findIndex(x => x.id === id);
+  if (idx === -1 && action !== "note-save" && action !== "note-cancel") return;
+  const item = arr[idx];
+
+  if (action === "remove") { arr.splice(idx, 1); saveTokens(); renderList(); return; }
+  if (action === "toggle-status") {
+    item.status = item.status === "validated" ? "needs-validating" : "validated";
+    saveTokens(); renderList(); return;
+  }
+  if (action === "note") { item._editingNote = true; renderList(); return; }
+  if (action === "note-save") {
+    const inp = document.querySelector(`input[data-action='note-input'][data-id='${id}']`);
+    if (inp) item.note = inp.value.trim();
+    delete item._editingNote;
+    saveTokens(); renderList(); return;
+  }
+  if (action === "note-cancel") { delete item._editingNote; renderList(); return; }
+  if (action === "copy") {
+    const t = tokenString(item.values);
+    if (!t) return;
+    navigator.clipboard.writeText(t).then(() => showToast(`Copied: ${t}`));
+    return;
+  }
+  if (action === "edit-token") { openEditModal(id); return; }
+}
+
+// ---------- Toast ----------
+let toastTimer = null;
+function showToast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1600);
+}
+
+// ---------- Main ----------
+function render() {
+  renderRulesPanel();
+  renderGrammars();
+  renderGrammarDetails();
+  renderPath();
+  renderStep();
+  renderList();
+}
+
+$("back").onclick = back;
+$("reset").onclick = resetWizard;
+$("copy").onclick = copyResult;
+$("addValidated").onclick = () => addToken("validated");
+$("addNeedsWork").onclick = () => addToken("needs-validating");
+$("saveEdit").onclick = () => closeEditModal(true);
+$("cancelEdit").onclick = () => closeEditModal(false);
+$("editModalClose").onclick = () => closeEditModal(false);
+
+$("editModal").addEventListener("mousedown", (e) => {
+  if (e.target === $("editModal")) closeEditModal(false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.editing) closeEditModal(false);
+});
+
+document.querySelectorAll("[data-clear]").forEach(b => {
+  b.onclick = () => {
+    if (state.tokens.length === 0) return;
+    if (confirm(`Clear all tokens and dividers from the list?`)) {
+      state.tokens = [];
+      saveTokens();
+      renderList();
+    }
+  };
+});
+document.querySelectorAll("[data-add-divider]").forEach(b => {
+  b.onclick = () => {
+    state.tokens.push({ type: "divider", id: uid(), label: "" });
+    saveTokens();
+    renderList();
+  };
+});
+
+// Rules panel toggle
+$("rulesToggle").onclick = () => $("rulesPanel").classList.toggle("open");
+// Grammar details accordion toggle
+$("detailsToggle").onclick = () => $("grammarDetails").classList.toggle("open");
+
+// File uploads
+function handleFileUpload(inputId, kind) {
+  const inp = $(inputId);
+  inp.onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.docs[kind] = { name: file.name, text: String(reader.result || "") };
+      saveDocs();
+      reparseDocs();
+      const summary = parseSummary(kind);
+      showToast(`${file.name} loaded — ${summary}`);
+      render();
+    };
+    reader.readAsText(file);
+    inp.value = "";
+  };
+}
+$("uploadConventionBtn").onclick = () => $("uploadConvention").click();
+$("uploadFamiliesBtn").onclick = () => $("uploadFamilies").click();
+handleFileUpload("uploadConvention", "convention");
+handleFileUpload("uploadFamilies", "families");
+$("resetConventionBtn").onclick = () => {
+  state.docs.convention = null; state.parsed.convention = null;
+  saveDocs(); render(); showToast("Reverted token-naming-convention to defaults");
+};
+$("resetFamiliesBtn").onclick = () => {
+  state.docs.families = null; state.parsed.families = null;
+  saveDocs(); render(); showToast("Reverted scale-families to defaults");
+};
+
+function parseSummary(kind) {
+  if (kind === "convention") {
+    const p = state.parsed.convention;
+    if (!p) return "could not parse";
+    const grammarCount = Object.keys(p.grammars || {}).length;
+    const exCount = Object.values(p.grammars || {}).reduce((s, g) => s + (g.examples?.length || 0), 0);
+    return `${grammarCount} grammars, ${exCount} examples`;
+  }
+  if (kind === "families") {
+    const p = state.parsed.families;
+    if (!p) return "could not parse";
+    return `${Object.keys(p.families || {}).length} scale families`;
+  }
+  return "";
+}
+
+loadStorage();
+render();
+</script>
+</body>
+</html>
