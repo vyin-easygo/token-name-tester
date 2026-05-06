@@ -364,6 +364,47 @@
     padding: 0 3px;
     font-style: normal;
   }
+  .path .slot-clickable { cursor: pointer; }
+  .path .slot-clickable:hover {
+    box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft);
+    border-radius: 3px;
+  }
+  .path .slot-editing {
+    box-shadow: 0 0 0 2px var(--accent) !important;
+    border-radius: 3px;
+  }
+  .editing-slot-banner {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .editing-slot-banner .pb-spacer { flex: 1; }
+  .editing-slot-banner button {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .editing-slot-banner button:hover { background: var(--accent); color: #0b0b0d; }
+  .editing-slot-banner .current-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: rgba(0,0,0,0.35);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--accent);
+  }
 
   .tip { position: relative; }
   .tip:hover::after {
@@ -830,24 +871,57 @@
     border-left: 2px solid var(--border);
     padding-left: 8px;
   }
-  .list-row .row-note-display .note-icon { opacity: 0.6; font-size: 11px; font-style: normal; display: flex; }
+  .list-row .row-note-display .note-icon { opacity: 0.6; font-size: 11px; font-style: normal; display: flex; padding-top: 2px; }
+  .list-row .row-note-display .note-body { flex: 1; }
+  .list-row .row-note-display .note-body ul {
+    list-style: disc;
+    padding-left: 18px;
+    margin: 2px 0;
+  }
+  .list-row .row-note-display .note-body li { margin: 1px 0; }
+  .list-row .row-note-display .note-body p { margin: 0; }
+  .list-row .row-note-display .note-body p + p { margin-top: 4px; }
   .list-row .row-note-edit {
     grid-column: 2 / span 2;
     grid-row: 3;
     display: flex;
+    flex-direction: column;
     gap: 6px;
   }
-  .list-row .row-note-edit input {
-    flex: 1;
+  .list-row .row-note-edit textarea {
+    width: 100%;
     background: var(--bg);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 4px 8px;
+    padding: 6px 8px;
     border-radius: 4px;
-    font: inherit;
+    font-family: inherit;
     font-size: 12px;
+    line-height: 1.5;
+    min-height: 64px;
+    resize: vertical;
   }
-  .list-row .row-note-edit input:focus { outline: none; border-color: var(--accent); }
+  .list-row .row-note-edit textarea:focus { outline: none; border-color: var(--accent); }
+  .list-row .row-note-edit .note-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .list-row .row-note-edit .note-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-right: auto;
+    font-style: italic;
+  }
+  .list-row .row-note-edit .note-hint code {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: var(--surface);
+    padding: 0 4px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    font-style: normal;
+    color: var(--text);
+  }
   .list-row .row-note-edit button {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1122,6 +1196,14 @@
       <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
     </g>
   </symbol>
+  <symbol id="ic-duplicate" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+      <line x1="15" y1="12" x2="15" y2="18"/>
+      <line x1="12" y1="15" x2="18" y2="15"/>
+    </g>
+  </symbol>
   <symbol id="ic-x" viewBox="0 0 24 24">
     <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
@@ -1382,6 +1464,7 @@ const state = {
   grammar: null,
   values: [],
   pendingPrefix: null,
+  editingSlotIdx: null, // when set, picking a value REPLACES values[idx] instead of appending
   tokens: [], // unified list: { type:'token', id, grammar, values, status, note? } | { type:'divider', id, label? }
   editing: null,
   mainBackup: null,
@@ -1522,6 +1605,42 @@ function inlineMd(text) {
   return s;
 }
 
+// Render a note: preserves line breaks, converts "- " / "* " lines to bullet lists
+function renderNote(text) {
+  if (!text) return "";
+  const lines = String(text).split("\n");
+  const out = [];
+  let inList = false;
+  let paragraph = [];
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      out.push(`<p>${paragraph.map(escapeHtml).join("<br>")}</p>`);
+      paragraph = [];
+    }
+  };
+  const closeList = () => {
+    if (inList) { out.push("</ul>"); inList = false; }
+  };
+  for (const raw of lines) {
+    const line = raw;
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+    if (bullet) {
+      flushParagraph();
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${escapeHtml(bullet[1])}</li>`);
+    } else if (line.trim() === "") {
+      flushParagraph();
+      closeList();
+    } else {
+      closeList();
+      paragraph.push(line);
+    }
+  }
+  flushParagraph();
+  closeList();
+  return out.join("");
+}
+
 function parseFamilies(md) {
   const out = { families: {} };
   if (!md) return out;
@@ -1654,6 +1773,22 @@ function autoSkipIfNeeded() {
   }
 }
 function pickValue(v, mark = false) {
+  // Replace mode (slot-edit)
+  if (state.editingSlotIdx !== null && state.editingSlotIdx !== undefined) {
+    let value = v, c = mark || false;
+    if (state.pendingPrefix) {
+      value = state.pendingPrefix + v;
+      c = "rule-break";
+      state.pendingPrefix = null;
+    }
+    const idx = state.editingSlotIdx;
+    state.values[idx] = { v: value, c };
+    state.editingSlotIdx = null;
+    reValidateAfter(idx + 1);
+    render();
+    return;
+  }
+  // Append mode
   if (state.pendingPrefix) {
     const combined = state.pendingPrefix + v;
     state.pendingPrefix = null;
@@ -1662,6 +1797,39 @@ function pickValue(v, mark = false) {
     state.values.push({ v, c: mark || false });
   }
   autoSkipIfNeeded();
+  render();
+}
+
+// Re-classify each value at index ≥ start as canonical / rule-break / custom
+// based on its slot's option set in the new context.
+function reValidateAfter(start) {
+  if (!state.grammar) return;
+  const ag = activeGrammar(state.grammar);
+  const allApproved = allApprovedOptions(state.grammar);
+  for (let i = start; i < state.values.length; i++) {
+    const entry = state.values[i];
+    if (!entry || entry.v == null || entry.v === "") continue;
+    const slot = ag.slots[i];
+    if (!slot) continue;
+    const path = state.values.slice(0, i).map(e => (e && e.v) || null).filter(x => x != null);
+    let opts = [];
+    try { opts = slot.options(path) || []; } catch (_) {}
+    if (opts.includes(entry.v)) entry.c = false;
+    else if (allApproved.includes(entry.v)) entry.c = "rule-break";
+    else entry.c = "custom";
+  }
+}
+
+function startEditSlot(idx) {
+  if (idx < 0 || idx >= state.values.length) return;
+  if (!state.values[idx] || state.values[idx].v == null) return;
+  state.editingSlotIdx = idx;
+  state.pendingPrefix = null;
+  render();
+}
+function cancelEditSlot() {
+  state.editingSlotIdx = null;
+  state.pendingPrefix = null;
   render();
 }
 function startPrefix(prefix) { state.pendingPrefix = prefix; render(); }
@@ -1677,6 +1845,9 @@ function cancelPrefix() { state.pendingPrefix = null; render(); }
 function skipSlot() { state.values.push(null); autoSkipIfNeeded(); render(); }
 function back() {
   if (state.pendingPrefix) { state.pendingPrefix = null; render(); return; }
+  if (state.editingSlotIdx !== null && state.editingSlotIdx !== undefined) {
+    state.editingSlotIdx = null; render(); return;
+  }
   if (state.values.length === 0) return;
   state.values.pop();
   render();
@@ -1684,6 +1855,7 @@ function back() {
 function resetWizard() {
   state.values = [];
   state.pendingPrefix = null;
+  state.editingSlotIdx = null;
   if (state.grammar) autoSkipIfNeeded();
   render();
 }
@@ -1729,6 +1901,7 @@ function openEditModal(tokenId) {
   state.grammar = item.grammar;
   state.values = JSON.parse(JSON.stringify(item.values));
   state.pendingPrefix = null;
+  state.editingSlotIdx = null;
   state.editing = { tokenId, originalValues: JSON.parse(JSON.stringify(item.values)) };
 
   const builder = $("builder");
@@ -1809,6 +1982,7 @@ function renderGrammars() {
       state.grammar = key;
       state.values = [];
       state.pendingPrefix = null;
+      state.editingSlotIdx = null;
       autoSkipIfNeeded();
       render();
     };
@@ -1932,16 +2106,25 @@ function renderPath() {
   if (!state.grammar) { el.innerHTML = `<span class="placeholder">pick a grammar to start…</span>`; return; }
   const g = activeGrammar(state.grammar);
   let parts = [];
-  state.values.forEach((entry) => {
+  state.values.forEach((entry, i) => {
     if (entry === null || entry === undefined) return;
     if (entry.v === null || entry.v === "") return;
-    if (entry.c === "custom") parts.push(`<span class="custom-val tip" data-tip="Custom value — not in the approved options listed in the docs.">${escapeHtml(entry.v)}</span>`);
-    else if (entry.c === "rule-break") parts.push(`<span class="rule-break-val tip" data-tip="Approved value used in the wrong slot — breaks the grammar's slot rules.">${escapeHtml(entry.v)}</span>`);
-    else parts.push(`<span class="filled">${escapeHtml(entry.v)}</span>`);
+    const isEditing = state.editingSlotIdx === i;
+    let baseClass = "filled";
+    let tipAttr = "";
+    if (entry.c === "custom") {
+      baseClass = "custom-val tip";
+      tipAttr = `data-tip="Custom value — not in the approved options listed in the docs."`;
+    } else if (entry.c === "rule-break") {
+      baseClass = "rule-break-val tip";
+      tipAttr = `data-tip="Approved value used in the wrong slot — breaks the grammar's slot rules."`;
+    }
+    const editClass = "slot-clickable" + (isEditing ? " slot-editing" : "");
+    parts.push(`<span class="${baseClass} ${editClass}" data-slot-idx="${i}" title="Click to change this slot" ${tipAttr}>${escapeHtml(entry.v)}</span>`);
   });
   if (state.pendingPrefix) {
     parts.push(`<span class="building">${escapeHtml(state.pendingPrefix)}</span>`);
-  } else {
+  } else if (state.editingSlotIdx === null || state.editingSlotIdx === undefined) {
     const cursorIdx = state.values.length;
     if (cursorIdx < g.slots.length) {
       for (let i = cursorIdx; i < g.slots.length; i++) {
@@ -1955,6 +2138,13 @@ function renderPath() {
     }
   }
   el.innerHTML = parts.join('<span class="dot">.</span>');
+  // Wire slot clicks
+  el.querySelectorAll('[data-slot-idx]').forEach(s => {
+    s.onclick = (e) => {
+      e.stopPropagation();
+      startEditSlot(parseInt(s.dataset.slotIdx, 10));
+    };
+  });
 }
 
 function renderModalCompare() {
@@ -1976,22 +2166,40 @@ function renderStep() {
     return;
   }
 
-  const filled = filledStrings(state.values);
+  const editingIdx = (state.editingSlotIdx !== null && state.editingSlotIdx !== undefined) ? state.editingSlotIdx : null;
+  const ag = activeGrammar(state.grammar);
   const allApproved = allApprovedOptions(state.grammar);
   const done = isDone();
   let opts = [];
   let bendOpts = allApproved.slice();
   let slot = null;
 
-  if (!done) {
+  if (editingIdx !== null) {
+    slot = ag.slots[editingIdx] || null;
+    const prevPath = state.values.slice(0, editingIdx).map(e => (e && e.v) || null).filter(x => x != null);
+    opts = slot ? (slot.options(prevPath) || []) : [];
+    bendOpts = allApproved.filter(o => !opts.includes(o));
+  } else if (!done) {
     slot = currentSlot();
+    const filled = filledStrings(state.values);
     opts = slot.options(filled) || [];
     bendOpts = allApproved.filter(o => !opts.includes(o));
   }
 
   let html = "";
 
-  if (!done) {
+  if (editingIdx !== null) {
+    const cur = state.values[editingIdx]?.v || "(empty)";
+    const slotLabel = slot ? slot.name : `extra slot ${editingIdx + 1}`;
+    html += `
+      <div class="editing-slot-banner">
+        Replacing <strong>${escapeHtml(slotLabel)}</strong>
+        — current <span class="current-mono">${escapeHtml(cur)}</span>
+        <span class="pb-spacer"></span>
+        <button id="cancelEditSlot">Cancel</button>
+      </div>
+    `;
+  } else if (!done) {
     html += `
       <div class="slot-label">
         <span>Slot: ${escapeHtml(slot.name)}</span>
@@ -2013,7 +2221,18 @@ function renderStep() {
     `;
   }
 
-  if (!done) {
+  if (editingIdx !== null) {
+    if (opts.length > 0) {
+      html += `<div class="options">`;
+      for (const o of opts) {
+        const labelExtra = state.pendingPrefix ? ` <span style="opacity:0.6">→ ${escapeHtml(state.pendingPrefix + o)}</span>` : "";
+        html += `<button class="opt-btn" data-val="${escapeHtml(o)}" data-mark="">${escapeHtml(o)}${labelExtra}</button>`;
+      }
+      html += `</div>`;
+    } else {
+      html += `<div class="empty">No canonical options listed for this slot — pick rule-bending below or type your own.</div>`;
+    }
+  } else if (!done) {
     if (opts.length > 0) {
       html += `<div class="options">`;
       for (const o of opts) {
@@ -2076,6 +2295,7 @@ function renderStep() {
 
   const pc = $("prefixCommit"); if (pc) pc.onclick = commitPrefixAsIs;
   const px = $("prefixCancel"); if (px) px.onclick = cancelPrefix;
+  const cs = $("cancelEditSlot"); if (cs) cs.onclick = cancelEditSlot;
 
   const input = $("customInput");
   const add = $("customAdd");
@@ -2090,7 +2310,7 @@ function renderStep() {
   add.onclick = submit;
   input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
 
-  const canSave = done && !state.pendingPrefix;
+  const canSave = done && !state.pendingPrefix && editingIdx === null;
   copyBtn.disabled = !canSave;
   addV.disabled = !canSave;
   addN.disabled = !canSave;
@@ -2207,14 +2427,17 @@ function renderItem(item) {
   const editingNote = item._editingNote;
   const noteRow = editingNote
     ? `<div class="row-note-edit">
-        <input type="text" placeholder="Add a note about this token…" value="${escapeHtml(item.note || "")}" data-action="note-input" data-id="${item.id}" />
-        <button data-action="note-save" data-id="${item.id}">Save</button>
-        <button data-action="note-cancel" data-id="${item.id}">Cancel</button>
+        <textarea placeholder="Add a note about this token… (use - or * for bullets)" data-action="note-input" data-id="${item.id}">${escapeHtml(item.note || "")}</textarea>
+        <div class="note-edit-actions">
+          <span class="note-hint">Enter for new line · <code>- item</code> for bullets · ⌘/Ctrl+Enter to save · Esc to cancel</span>
+          <button data-action="note-cancel" data-id="${item.id}">Cancel</button>
+          <button data-action="note-save" data-id="${item.id}">Save</button>
+        </div>
       </div>`
     : (item.note
       ? `<div class="row-note-display"><span class="note-icon">
           <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-file-pen"/></svg>
-        </span><span>${escapeHtml(item.note)}</span></div>`
+        </span><div class="note-body">${renderNote(item.note)}</div></div>`
       : "");
 
   return `
@@ -2240,6 +2463,10 @@ function renderItem(item) {
         <button class="small-btn" data-action="copy" data-id="${item.id}" title="Copy token name">
           <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-copy"/></svg>
           Copy
+        </button>
+        <button class="small-btn" data-action="duplicate" data-id="${item.id}" title="Duplicate this token">
+          <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-duplicate"/></svg>
+          Duplicate
         </button>
         <button class="small-btn danger" data-action="remove" data-id="${item.id}" title="Remove">
           <svg viewBox="0 0 24 24" width="11" height="11"><use href="#ic-x"/></svg>
@@ -2312,10 +2539,17 @@ function wireRows() {
 
     row.querySelectorAll("[data-action='note-input']").forEach(inp => {
       inp.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") handleAction("note-save", inp.dataset.id, inp);
-        if (e.key === "Escape") handleAction("note-cancel", inp.dataset.id, inp);
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          handleAction("note-save", inp.dataset.id, inp);
+        } else if (e.key === "Escape") {
+          handleAction("note-cancel", inp.dataset.id, inp);
+        }
       });
       inp.focus();
+      // Move caret to end of existing text
+      const len = inp.value.length;
+      try { inp.setSelectionRange(len, len); } catch (_) {}
     });
   });
 }
@@ -2395,8 +2629,8 @@ function handleAction(action, id, btn) {
   }
   if (action === "note") { item._editingNote = true; renderList(); return; }
   if (action === "note-save") {
-    const inp = document.querySelector(`input[data-action='note-input'][data-id='${id}']`);
-    if (inp) item.note = inp.value.trim();
+    const inp = document.querySelector(`[data-action='note-input'][data-id='${id}']`);
+    if (inp) item.note = inp.value.replace(/\s+$/g, "");
     delete item._editingNote;
     saveTokens(); renderList(); return;
   }
@@ -2408,6 +2642,16 @@ function handleAction(action, id, btn) {
     return;
   }
   if (action === "edit-token") { openEditModal(id); return; }
+  if (action === "duplicate") {
+    const clone = JSON.parse(JSON.stringify(item));
+    clone.id = uid();
+    delete clone._editingNote;
+    arr.splice(idx + 1, 0, clone);
+    saveTokens();
+    renderList();
+    showToast(`Duplicated: ${tokenString(clone.values)}`);
+    return;
+  }
 }
 
 // ---------- Toast ----------
